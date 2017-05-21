@@ -63,14 +63,14 @@ func runPut(conn *pmb.Connection) error {
 	for {
 		message := <-conn.In
 		if message.Contents["type"].(string) == "UploadURLAvailable" {
-			mes := UploadAvailableMessage{}
+			mes := UrlAvailableMessage{}
 			if err := json.Unmarshal([]byte(message.Raw), &mes); err != nil {
 				return errors.Wrap(err, "unable to unmarshal json")
 			}
 
 			// if the upload url message we received was for us and the right filename...
 			if mes.Requestor == conn.Id && mes.Filename == putCommand.Args.FileName {
-				logrus.Infof("Going to upload %s to %s...", putCommand.Args.FileName, mes.Url)
+				logrus.Debugf("Going to upload %s to %s...", putCommand.Args.FileName, mes.Url)
 
 				// build the upload request
 				req, err := http.NewRequest("PUT", mes.Url, nil)
@@ -108,12 +108,4 @@ func runPut(conn *pmb.Connection) error {
 	}
 
 	return nil
-}
-
-type UploadAvailableMessage struct {
-	Type      string      `json:"type"`
-	Requestor string      `json:"requestor"`
-	Filename  string      `json:"filename"`
-	Url       string      `json:"upload_url"`
-	Header    http.Header `json:"headers"`
 }
