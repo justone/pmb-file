@@ -72,24 +72,29 @@ func runBroker(conn *pmb.Connection) error {
 	for {
 		message := <-conn.In
 		if message.Contents["type"].(string) == "RequestDownloadURL" {
-			// if latest, ok := message.Contents["latest"]; ok {
-			// 	if latest.(bool) {
-			// 		logrus.Infof("Generating S3 download url...")
-			// 		response := map[string]interface{}{
-			// 			"type":         "DownloadURLAvailable",
-			// 			"requestor":    message.Contents["id"].(string),
-			// 			"url": "https://s3.aws.com.url/foo.file",
-			// 		}
-			// 		conn.Out <- pmb.Message{Contents: response}
-			// 	}
-			// }
-			filename := message.Contents["filename"].(string)
-			logrus.Infof("Generating S3 download url for %s...", filename)
 
-			getObjReq, _ := s3svc.GetObjectRequest(&s3.GetObjectInput{
+			// get object request input
+			getObjInput := &s3.GetObjectInput{
 				Bucket: aws.String(brokerCommand.Bucket),
-				Key:    aws.String(filename),
-			})
+			}
+
+			filename := message.Contents["filename"].(string)
+			if len(filename) > 0 {
+				logrus.Infof("Generating S3 download url for %s...", filename)
+
+				getObjInput.Key = aws.String(filename)
+			} else {
+				index := int(message.Contents["index"].(float64))
+				logrus.Infof("Generating S3 download url for file at index %d...", index)
+
+				// TODO: bounds check this
+				fileVersion := versions[index]
+
+				getObjInput.Key = aws.String(fileVersion.Name)
+				getObjInput.VersionId = aws.String(fileVersion.VersionId)
+			}
+
+			getObjReq, _ := s3svc.GetObjectRequest(getObjInput)
 
 			url, headers, err := getObjReq.PresignRequest(15 * time.Minute)
 			if err != nil {
@@ -126,6 +131,22 @@ func runBroker(conn *pmb.Connection) error {
 				"filename":  filename,
 				"url":       url,
 				"headers":   headers,
+			}
+			conn.Out <- pmb.Message{Contents: response}
+		} else if message.Contents["type"].(string) == "RequestFileList" {
+			count := message.Contents["count"].(float64)
+
+			var resultingFiles []FileVersion
+			if count > float64(len(versions)) {
+				resultingFiles = versions
+			} else {
+				resultingFiles = versions[0:int(count)]
+			}
+
+			response := map[string]interface{}{
+				"type":      "FileListing",
+				"requestor": message.Contents["id"].(string),
+				"files":     resultingFiles,
 			}
 			conn.Out <- pmb.Message{Contents: response}
 		} else if message.Contents["type"].(string) == "FileUploaded" {

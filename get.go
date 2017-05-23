@@ -14,10 +14,10 @@ import (
 )
 
 type GetCommand struct {
-	Latest bool `short:"l" long:"latest" description:"Get the latest file that was uploaded."`
-	Args   struct {
-		FileName string `description:"File to download"`
-	} `positional-args:"yes" required:"no"`
+	Index int `short:"i" long:"index" description:"Get the file with the given index (from 'pmb-file list')" default:"0"`
+	Args  struct {
+		Rest []string `description:"File to download" required:"0"`
+	} `positional-args:"yes"`
 }
 
 var getCommand GetCommand
@@ -44,13 +44,17 @@ func init() {
 
 func runGet(conn *pmb.Connection) error {
 
-	if len(getCommand.Args.FileName) == 0 {
-		return fmt.Errorf("you need to specify the filename to download, for now")
+	var filename string
+	if len(getCommand.Args.Rest) > 0 {
+		filename = getCommand.Args.Rest[0]
+	} else {
+		filename = ""
 	}
 
 	request := map[string]interface{}{
 		"type":     "RequestDownloadURL",
-		"filename": getCommand.Args.FileName,
+		"filename": filename,
+		"index":    getCommand.Index,
 	}
 	conn.Out <- pmb.Message{Contents: request}
 
@@ -62,7 +66,7 @@ func runGet(conn *pmb.Connection) error {
 				return errors.Wrap(err, "unable to unmarshal json")
 			}
 
-			if mes.Requestor == conn.Id && mes.Filename == getCommand.Args.FileName {
+			if mes.Requestor == conn.Id && mes.Filename == filename {
 				logrus.Debugf("Going to download %s...", mes.Url)
 
 				// build the download request

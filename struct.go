@@ -11,3 +11,9 @@ type UrlAvailableMessage struct {
 	Url       string      `json:"url"`
 	Header    http.Header `json:"headers"`
 }
+
+type FileListingMessage struct {
+	Type      string        `json:"type"`
+	Requestor string        `json:"requestor"`
+	Files     []FileVersion `json:"files"`
+}
