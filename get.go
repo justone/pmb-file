@@ -36,10 +36,10 @@ func (x *GetCommand) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("get",
-		"Retrieve a file.",
-		"",
-		&getCommand)
+	_, err := parser.AddCommand("get", "Retrieve a file.", "", &getCommand)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func runGet(conn *pmb.Connection) error {

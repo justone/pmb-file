@@ -22,8 +22,8 @@ func (x *VersionCommand) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("version",
-		"Print the version number.",
-		"",
-		&versionCommand)
+	_, err := parser.AddCommand("version", "Print the version number.", "", &versionCommand)
+	if err != nil {
+		fmt.Println(err)
+	}
 }

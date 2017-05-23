@@ -28,10 +28,10 @@ func (x *ListCommand) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("list",
-		"Retrieve a file.",
-		"",
-		&listCommand)
+	_, err := parser.AddCommand("list", "Retrieve a file.", "", &listCommand)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func runList(conn *pmb.Connection) error {

@@ -34,10 +34,10 @@ func (x *PutCommand) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("put",
-		"Upload a file.",
-		"",
-		&putCommand)
+	_, err := parser.AddCommand("put", "Upload a file.", "", &putCommand)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func runPut(conn *pmb.Connection) error {

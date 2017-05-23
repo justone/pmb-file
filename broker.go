@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -35,10 +36,10 @@ func (x *BrokerCommand) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("broker",
-		"Persistent file broker, handling interfacing with S3",
-		"",
-		&brokerCommand)
+	_, err := parser.AddCommand("broker", "Persistent file broker, handling interfacing with S3", "", &brokerCommand)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func runBroker(conn *pmb.Connection) error {
