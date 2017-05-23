@@ -101,7 +101,19 @@ func runPut(conn *pmb.Connection) error {
 					return fmt.Errorf("failed to upload: code: %d, status: %s, body: %s", resp.StatusCode, resp.Status, string(body))
 				}
 
-				// upload is done, and we're done looking for messages
+				// upload is done
+				doneMessage := pmb.Message{
+					Contents: map[string]interface{}{
+						"type":     "FileUploaded",
+						"filename": putCommand.Args.FileName,
+					},
+					Done: make(chan error),
+				}
+				conn.Out <- doneMessage
+
+				<-doneMessage.Done
+
+				// and we're done looking for messages
 				break
 			}
 		}

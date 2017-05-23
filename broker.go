@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sort"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -55,6 +56,18 @@ func runBroker(conn *pmb.Connection) error {
 	s3svc := s3.New(sess, &aws.Config{
 		Region: aws.String(region),
 	})
+
+	var versions []FileVersion
+	var err error
+
+	versions, err = getSortedVersions(s3svc)
+	if err != nil {
+		return errors.Wrap(err, "unable to get sorted versions")
+	}
+
+	// for _, ver := range versions {
+	// 	fmt.Println(ver)
+	// }
 
 	for {
 		message := <-conn.In
@@ -115,8 +128,62 @@ func runBroker(conn *pmb.Connection) error {
 				"headers":   headers,
 			}
 			conn.Out <- pmb.Message{Contents: response}
+		} else if message.Contents["type"].(string) == "FileUploaded" {
+			versions, err = getSortedVersions(s3svc)
+			if err != nil {
+				logrus.Warnf("unable to get sorted versions: %v", err)
+			}
 		}
 	}
 
 	return nil
+}
+
+func getSortedVersions(s3svc *s3.S3) ([]FileVersion, error) {
+
+	logrus.Infof("fetching versions")
+	versions := []FileVersion{}
+
+	oVersionsResp, err := s3svc.ListObjectVersions(&s3.ListObjectVersionsInput{
+		Bucket: aws.String(brokerCommand.Bucket),
+	})
+	if err != nil {
+		return versions, errors.Wrap(err, "unable to list object versions")
+	}
+
+	for _, version := range oVersionsResp.Versions {
+		versions = append(versions, FileVersion{
+			Name:      *version.Key,
+			Modified:  *version.LastModified,
+			Size:      *version.Size,
+			VersionId: *version.VersionId,
+		})
+	}
+
+	logrus.Infof("count of versions fetched: %d", len(versions))
+
+	sort.Sort(ByModified(versions))
+
+	return versions, nil
+}
+
+type ByModified []FileVersion
+
+func (s ByModified) Len() int {
+	return len(s)
+}
+
+func (s ByModified) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s ByModified) Less(i, j int) bool {
+	return !s[i].Modified.Before(s[j].Modified)
+}
+
+type FileVersion struct {
+	Name      string
+	Modified  time.Time
+	Size      int64
+	VersionId string
 }
